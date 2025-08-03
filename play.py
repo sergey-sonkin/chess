@@ -7,10 +7,11 @@ Load trained models and play against them.
 import argparse
 import os
 from pathlib import Path
+
 from chess_ai import ChessAI
 
 
-def find_latest_model(generation: int = None) -> str:
+def find_latest_model(generation: int | None = None) -> str | None:
     """Find the most recent trained model."""
     if not os.path.exists("runs"):
         return None
@@ -42,7 +43,7 @@ def find_latest_model(generation: int = None) -> str:
         return f"{run_dir}/{latest_model}"
 
 
-def play_against_ai(model_path: str = None, generation: int = None):
+def play_against_ai(model_path: str | None = None, generation: int | None = None):
     """Play a game against the trained AI."""
 
     if model_path is None:
@@ -61,7 +62,7 @@ def play_against_ai(model_path: str = None, generation: int = None):
     # Load the AI
     try:
         ai = ChessAI(model_path=model_path, generation=generation or 1)
-        print(f"✅ Loaded AI model")
+        print("✅ Loaded AI model")
     except Exception as e:
         print(f"❌ Error loading model: {e}")
         return

@@ -1,7 +1,9 @@
 import time
-import torch
-from chess_ai import ChessAI, GamePosition, board_to_tensor
+
 import chess
+import torch
+
+from chess_ai import ChessAI
 
 
 def benchmark_device_performance(device: str, num_games: int = 10, num_epochs: int = 3):
@@ -165,7 +167,7 @@ def run_full_benchmark():
         cpu_result = next(r for r in training_results if r["device"] == "cpu")
         overall_speedup = cpu_result["total_time"] / mps_result["total_time"]
 
-        print(f"\n🏆 SUMMARY")
+        print("\n🏆 SUMMARY")
         print(f"Overall MPS speedup: {overall_speedup:.2f}x faster than CPU")
 
         if overall_speedup > 1.5:

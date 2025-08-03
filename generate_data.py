@@ -6,18 +6,18 @@ Saves position-outcome pairs to files for later training.
 
 import argparse
 import pickle
-import random
-from pathlib import Path
 from datetime import datetime
-from chess_ai import ChessAI, GamePosition
+from pathlib import Path
+
+from chess_ai import ChessAI
 
 
 def generate_training_data(
     num_games: int,
     exploration_rate: float = 0.3,
-    output_file: str = None,
+    output_file: str | None = None,
     generation: int = 1,
-    device: str = None,
+    device: str | None = None,
 ) -> str:
     """Generate training data and save to file."""
 
@@ -84,7 +84,7 @@ def load_training_data(file_path: str):
     return data
 
 
-def combine_datasets(*file_paths: str, output_file: str = None):
+def combine_datasets(*file_paths: str, output_file: str | None = None):
     """Combine multiple training datasets into one."""
     if output_file is None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
