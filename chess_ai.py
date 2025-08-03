@@ -6,7 +6,6 @@ import torch.optim as optim
 import random
 import os
 from datetime import datetime
-from typing import List, Optional
 from dataclasses import dataclass
 
 from torch.types import Tensor
@@ -93,8 +92,8 @@ class ChessAI:
 
     def __init__(
         self,
-        model_path: Optional[str] = None,
-        run_name: Optional[str] = None,
+        model_path: str | None = None,
+        run_name: str | None = None,
         generation: int = 1,
         reward_function=None,
     ):
@@ -152,7 +151,7 @@ class ChessAI:
         for move in legal_moves:
             board.push(move)
             value = self.evaluate_position(board)
-            board.pop()
+            _ = board.pop()
 
             if board.turn and value > best_value:
                 best_value = value
@@ -163,7 +162,7 @@ class ChessAI:
 
         return best_move or random.choice(legal_moves)
 
-    def play_self_game(self, exploration_rate: float = 0.3) -> List[GamePosition]:
+    def play_self_game(self, exploration_rate: float = 0.3) -> list[GamePosition]:
         """Play a game against itself and collect position data."""
         board = chess.Board()
         positions: list[tuple[Tensor, chess.Color]] = []
@@ -194,7 +193,7 @@ class ChessAI:
 
     def generate_training_data(
         self, num_games: int, exploration_rate: float = 0.3
-    ) -> List[GamePosition]:
+    ) -> list[GamePosition]:
         """Generate training data through self-play."""
         all_positions = []
 
@@ -211,7 +210,7 @@ class ChessAI:
         return all_positions
 
     def train_on_data(
-        self, training_data: List[GamePosition], epochs: int = 10, batch_size: int = 64
+        self, training_data: list[GamePosition], epochs: int = 10, batch_size: int = 64
     ):
         """Train the neural network on position data."""
         self.model.train()
@@ -293,7 +292,7 @@ class ChessAI:
             return False
 
 
-def play_against_ai(model_path: Optional[str] = None):
+def play_against_ai(model_path: str | None = None):
     """Play a game against the trained AI."""
     if model_path is None:
         # Find latest model in most recent run
