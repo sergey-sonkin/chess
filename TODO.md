@@ -1,12 +1,17 @@
 # TODO
 
 TODO:
-* Introduce model battling
+* Separate training model from creating games
+* Train models for longer
+* Battle gen1 v gen2
 
 2025/08/01:
 * Implement base model
 * Improve file saving
 * Introducing Gen 2: Reward function takes into account game length
+* Introduce model battling
+* Use Apple ML cores for training model
+* Benchmark apple ml cores vs cpu
 
 ## Notes on current reward function
  
