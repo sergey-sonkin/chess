@@ -1,11 +1,12 @@
 # TODO
 
 TODO:
-* Improve
+* Introduce model battling
 
 2025/08/01:
 * Implement base model
 * Improve file saving
+* Introducing Gen 2: Reward function takes into account game length
 
 ## Notes on current reward function
  

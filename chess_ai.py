@@ -3,12 +3,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import numpy as np
 import random
-import pickle
 import os
 from datetime import datetime
-from typing import List, Tuple, Optional
+from typing import List, Optional
 from dataclasses import dataclass
 
 from torch.types import Tensor
@@ -19,9 +17,29 @@ class GamePosition:
     """Store a chess position with its eventual outcome."""
 
     board_tensor: torch.Tensor
-    outcome: (
-        float  # 1.0 for win, 0.0 for draw, -1.0 for loss (from white's perspective)
-    )
+    outcome: float  # Reward value from perspective of player to move
+
+
+def reward_function_gen1(result: str, game_length: int, max_length: int = 200) -> float:
+    """Generation 1 reward function: Simple win/loss/draw."""
+    if result == "1-0":  # White wins
+        return 1.0
+    elif result == "0-1":  # Black wins
+        return -1.0
+    else:  # Draw
+        return 0.0
+
+
+def reward_function_gen2(result: str, game_length: int, max_length: int = 200) -> float:
+    """Generation 2 reward function: Length-aware rewards."""
+    length_factor = (max_length - game_length) / max_length * 0.5
+
+    if result == "1-0":  # White wins
+        return 1.0 + length_factor  # Bonus for shorter wins
+    elif result == "0-1":  # Black wins
+        return -1.0 - length_factor  # Penalty increases for shorter losses
+    else:  # Draw
+        return -0.1  # Small penalty to encourage decisive play
 
 
 def board_to_tensor(board: chess.Board) -> torch.Tensor:
@@ -73,25 +91,43 @@ class ChessNet(nn.Module):
 class ChessAI:
     """Chess AI that learns through self-play."""
 
-    def __init__(self, model_path: Optional[str] = None, run_name: Optional[str] = None):
+    def __init__(
+        self,
+        model_path: Optional[str] = None,
+        run_name: Optional[str] = None,
+        generation: int = 1,
+        reward_function=None,
+    ):
         self.model = ChessNet()
         self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
         self.criterion = nn.MSELoss()
+        self.generation = generation
+
+        # Set reward function based on generation
+        if reward_function is None:
+            if generation == 1:
+                self.reward_function = reward_function_gen1
+            elif generation == 2:
+                self.reward_function = reward_function_gen2
+            else:
+                self.reward_function = reward_function_gen1  # Default to gen1
+        else:
+            self.reward_function = reward_function
 
         # Set up run directory
         if run_name is None:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            self.run_name = f"run_{timestamp}"
+            self.run_name = f"gen{generation}_run_{timestamp}"
         else:
             self.run_name = run_name
-            
+
         self.run_dir = f"runs/{self.run_name}"
         os.makedirs(self.run_dir, exist_ok=True)
 
         if model_path and self.load_model(model_path):
             print(f"Loaded model from {model_path}")
         else:
-            print(f"Starting with fresh model in {self.run_dir}")
+            print(f"Starting fresh Generation {generation} model in {self.run_dir}")
 
     def evaluate_position(self, board: chess.Board) -> float:
         """Evaluate a chess position using the neural network."""
@@ -142,20 +178,16 @@ class ChessAI:
         if not board.is_game_over() and len(positions) >= 200:
             print("Game didn't finish after 200 moves")
 
-        # Determine outcome from white's perspective
+        # Use generational reward function
         result = board.result()
-        if result == "1-0":  # White wins
-            outcome = 1.0
-        elif result == "0-1":  # Black wins
-            outcome = -1.0
-        else:  # Draw
-            outcome = 0.0
+        game_length = len(positions)
+        white_outcome = self.reward_function(result, game_length)
 
         # Create training data with outcomes
         game_positions = []
         for board_tensor, was_white_turn in positions:
             # Flip outcome if it was black's turn
-            position_outcome = outcome if was_white_turn else -outcome
+            position_outcome = white_outcome if was_white_turn else -white_outcome
             game_positions.append(GamePosition(board_tensor, position_outcome))
 
         return game_positions
@@ -235,10 +267,10 @@ class ChessAI:
             # Train on the data
             self.train_on_data(training_data, epochs=5)
 
-            # Save model checkpoint
-            model_path = f"{self.run_dir}/chess_ai_iter_{iteration + 1}.pth"
+            # Save model checkpoint with generation info
+            model_path = f"{self.run_dir}/gen{self.generation}_iter_{iteration + 1}.pth"
             self.save_model(model_path)
-            print(f"Model saved as {model_path}")
+            print(f"Generation {self.generation} model saved as {model_path}")
 
     def save_model(self, path: str):
         """Save the trained model."""
@@ -269,12 +301,14 @@ def play_against_ai(model_path: Optional[str] = None):
             runs = [d for d in os.listdir("runs") if os.path.isdir(f"runs/{d}")]
             if runs:
                 latest_run = max(runs)
-                run_models = [f for f in os.listdir(f"runs/{latest_run}") if f.endswith(".pth")]
+                run_models = [
+                    f for f in os.listdir(f"runs/{latest_run}") if f.endswith(".pth")
+                ]
                 if run_models:
                     latest_model = max(run_models)
                     model_path = f"runs/{latest_run}/{latest_model}"
                     print(f"Using latest model: {model_path}")
-    
+
     ai = ChessAI(model_path)
     board = chess.Board()
 
@@ -318,12 +352,17 @@ def play_against_ai(model_path: Optional[str] = None):
 
 
 if __name__ == "__main__":
-    # Train the AI
-    ai = ChessAI()
-    ai.iterative_training(iterations=3, games_per_iteration=200)
+    # Train Generation 1 AI (simple rewards)
+    print("=== Training Generation 1 (Simple Rewards) ===")
+    gen1_ai = ChessAI(generation=1)
+    gen1_ai.iterative_training(iterations=3, games_per_iteration=200)
 
-    # Play against it
+    # Train Generation 2 AI (length-aware rewards)
+    print("\n=== Training Generation 2 (Length-Aware Rewards) ===")
+    gen2_ai = ChessAI(generation=2)
+    gen2_ai.iterative_training(iterations=3, games_per_iteration=200)
+
+    # Play against latest generation
     print("\n" + "=" * 50)
-    print("Training complete! You can now play against the AI.")
+    print("Training complete! You can now play against the latest AI.")
     play_against_ai()
-
