@@ -96,8 +96,24 @@ class ChessAI:
         run_name: str | None = None,
         generation: int = 1,
         reward_function=None,
+        device: str | None = None,
     ):
-        self.model = ChessNet()
+        # Set up device (CPU, MPS for Apple Silicon, or CUDA)
+        if device is None:
+            if torch.backends.mps.is_available():
+                self.device = torch.device("mps")
+                print("Using Apple Silicon MPS device")
+            elif torch.cuda.is_available():
+                self.device = torch.device("cuda")
+                print("Using CUDA device")
+            else:
+                self.device = torch.device("cpu")
+                print("Using CPU device")
+        else:
+            self.device = torch.device(device)
+            print(f"Using specified device: {device}")
+
+        self.model = ChessNet().to(self.device)
         self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
         self.criterion = nn.MSELoss()
         self.generation = generation
@@ -132,7 +148,7 @@ class ChessAI:
         """Evaluate a chess position using the neural network."""
         self.model.eval()
         with torch.no_grad():
-            board_tensor = board_to_tensor(board).unsqueeze(0)
+            board_tensor = board_to_tensor(board).unsqueeze(0).to(self.device)
             evaluation = self.model(board_tensor).item()
         return evaluation
 
@@ -215,11 +231,15 @@ class ChessAI:
         """Train the neural network on position data."""
         self.model.train()
 
-        # Convert to tensors
-        positions = torch.stack([pos.board_tensor for pos in training_data])
-        outcomes = torch.tensor(
-            [pos.outcome for pos in training_data], dtype=torch.float32
-        ).unsqueeze(1)
+        # Convert to tensors and move to device
+        positions = torch.stack([pos.board_tensor for pos in training_data]).to(
+            self.device
+        )
+        outcomes = (
+            torch.tensor([pos.outcome for pos in training_data], dtype=torch.float32)
+            .unsqueeze(1)
+            .to(self.device)
+        )
 
         dataset = torch.utils.data.TensorDataset(positions, outcomes)
         dataloader = torch.utils.data.DataLoader(
@@ -284,7 +304,7 @@ class ChessAI:
     def load_model(self, path: str) -> bool:
         """Load a trained model."""
         try:
-            checkpoint = torch.load(path, map_location="cpu")
+            checkpoint = torch.load(path, map_location=self.device)
             self.model.load_state_dict(checkpoint["model_state_dict"])
             self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
             return True
@@ -350,18 +370,10 @@ def play_against_ai(model_path: str | None = None):
     print(f"Result: {board.result()}")
 
 
-if __name__ == "__main__":
-    # Train Generation 1 AI (simple rewards)
-    print("=== Training Generation 1 (Simple Rewards) ===")
-    gen1_ai = ChessAI(generation=1)
-    gen1_ai.iterative_training(iterations=3, games_per_iteration=200)
-
-    # Train Generation 2 AI (length-aware rewards)
-    print("\n=== Training Generation 2 (Length-Aware Rewards) ===")
-    gen2_ai = ChessAI(generation=2)
-    gen2_ai.iterative_training(iterations=3, games_per_iteration=200)
-
-    # Play against latest generation
-    print("\n" + "=" * 50)
-    print("Training complete! You can now play against the latest AI.")
-    play_against_ai()
+# Remove main execution - this is now a pure library module
+# Use the standalone scripts instead:
+# - generate_data.py: Generate training data
+# - train_model.py: Train models from data
+# - play.py: Play against trained models
+# - tournaments.py: AI vs AI battles
+# - benchmark.py: Performance testing
